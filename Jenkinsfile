@@ -112,7 +112,9 @@ pipeline {
     }
 
     stage('SBOM (Syft)') {
-      agent { kubernetes { yaml toolPod('syft', 'anchore/syft:latest') } }
+      // anchore/syft's default image is FROM scratch (binary only, no shell/cat) ->
+      // ContainerCannotRun: "cat": executable file not found. The "debug" tag adds busybox.
+      agent { kubernetes { yaml toolPod('syft', 'anchore/syft:debug') } }
       steps {
         container('syft') {
           unstash 'src'
