@@ -13,7 +13,8 @@
 // Push/Helm/GitOps/Argo CD/smoke-test stages run on the controller ('built-in'), which has
 // docker, kubectl, helm, argocd, and git baked in (see jenkins/Dockerfile).
 
-def toolPod(String containerName, String image) {
+def toolPod(String containerName, String image, Map<String, String> env = [:]) {
+  String envYaml = env ? "\n    env:\n" + env.collect { k, v -> "    - name: ${k}\n      value: \"${v}\"" }.join("\n") : ''
   return """
 apiVersion: v1
 kind: Pod
@@ -26,7 +27,7 @@ spec:
     image: ${image}
     command: ['cat']
     tty: true
-    workingDir: /home/jenkins/agent
+    workingDir: /home/jenkins/agent${envYaml}
 """
 }
 
@@ -93,11 +94,14 @@ pipeline {
     }
 
     stage('SAST (Semgrep)') {
-      agent { kubernetes { yaml toolPod('semgrep', 'semgrep/semgrep:latest') } }
+      // semgrep/semgrep auto-detects "running in Docker" and expects the conventional
+      // `-v $PWD:/src` bind mount, crashing on an unrelated empty /src otherwise.
+      // SEMGREP_IN_DOCKER=0 disables that heuristic; scan target is passed explicitly too.
+      agent { kubernetes { yaml toolPod('semgrep', 'semgrep/semgrep:latest', [SEMGREP_IN_DOCKER: '0']) } }
       steps {
         container('semgrep') {
           unstash 'src'
-          sh 'semgrep scan --config auto --error --json -o semgrep-results.json'
+          sh 'semgrep scan --config auto --error --json -o semgrep-results.json .'
         }
       }
       post {
