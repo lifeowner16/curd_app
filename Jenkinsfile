@@ -37,6 +37,7 @@ pipeline {
     timeout(time: 45, unit: 'MINUTES')
     disableConcurrentBuilds()
     buildDiscarder(logRotator(numToKeepStr: '20'))
+    ansiColor('xterm')
   }
 
   parameters {
@@ -68,7 +69,10 @@ pipeline {
     }
 
     stage('Go Test') {
-      agent { kubernetes { yaml toolPod('golang', 'golang:1.26-alpine') } }
+      // golang:*-alpine has no C toolchain (gcc/musl-dev) -> `-race` fails with
+      // "requires cgo; enable cgo by setting CGO_ENABLED=1". Use the Debian-based
+      // image, which ships gcc, instead.
+      agent { kubernetes { yaml toolPod('golang', 'golang:1.26') } }
       steps {
         container('golang') {
           unstash 'src'
