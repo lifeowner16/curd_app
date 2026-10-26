@@ -118,7 +118,7 @@ pipeline {
       steps {
         container('syft') {
           unstash 'src'
-          sh 'syft dir:. -o cyclonedx-json=sbom.cdx.json'
+          sh '/syft dir:. -o cyclonedx-json=sbom.cdx.json' // binary lives at / and isn't on PATH
           archiveArtifacts artifacts: 'sbom.cdx.json', fingerprint: true
         }
       }
